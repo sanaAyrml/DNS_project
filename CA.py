@@ -10,11 +10,21 @@ import uuid
 from entity import Entity
 from cryptography.hazmat.primitives.asymmetric import padding
 import string
+import threading
+import socket
+import pickle
+import json
+import base64
+
 class CA(Entity):
     def __init__(self, name: string, CA_pub_key):
         super().__init__(name, CA_pub_key)
         self.pubkey_dict = {}
         self.key_address = self.creat_key()
+        self.host = "127.0.0.1"
+        self.port = 3016
+        self.receiver = Receiver(self.host, self.port)
+        self.receiver.start()
 
     def add_pubkey(self,name,pubkey):
         self.pubkey_dict[name] = pubkey
@@ -87,3 +97,53 @@ class CA(Entity):
     #     return t
     #
     #
+class Receiver(threading.Thread):
+    def __init__(self, my_host, my_port):
+        threading.Thread.__init__(self, name="receiver")
+        self.host = my_host
+        self.port = my_port
+
+    def listen(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind((self.host, self.port))
+        sock.listen(10)
+        while True:
+            connection, client_address = sock.accept()
+            try:
+                full_message = ""
+                while True:
+                    data = connection.recv(16)
+                    full_message = full_message + data.decode("utf-8")
+                    if not data:
+                        # print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+                        full_message = json.loads(full_message, encoding="utf-8")
+                        # print('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+                        csr, signed_csr, encrypted  = full_message
+                        csr, signed_csr, encrypted  = base64.b64decode(signed_csr), base64.b64decode(encrypted)
+                        # print("{}: {} , {}".format(csr, signed_csr, encrypted))
+                        break
+            finally:
+                connection.shutdown(2)
+                connection.close()
+                pass
+
+    def run(self):
+        self.listen()
+
+
+class Sender(threading.Thread):
+
+    def __init__(self, my_friends_host, my_friends_port, message):
+        threading.Thread.__init__(self, name="sender")
+        self.host = my_friends_host
+        self.port = my_friends_port
+        self.message = message
+
+    def run(self):
+        while True:
+            message = self.message
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((self.host, self.port))
+            s.sendall(message.encode("utf-8"))
+            s.shutdown(2)
+            s.close()

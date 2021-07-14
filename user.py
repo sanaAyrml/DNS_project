@@ -10,15 +10,34 @@ import json
 import string
 import threading
 import socket
-
+import pickle
+import struct
+import base64
 
 class User(Entity):
     def __init__(self, name, CA_pub_key):
         super().__init__(name, CA_pub_key)
         self.key_address = self.creat_key()
         self.host = "127.0.0.1"
-        self.port = 2000
+        self.port = 2004
+        self.CA_host = "127.0.0.1"
+        self.CA_port = 3016
+        # self.receiver = Receiver(self.host, self.port)
+        # self.receiver.start()
         print(self.key_address)
+
+    def start_communication(self, user_id):
+        csr, signed_csr, encrypted = self.creat_csr(user_id)
+
+        # print("sadiasfasofnasoifjaisjfoisajf", type(signed_csr))
+        encoded = base64.b64encode(signed_csr)
+        encoded1 = base64.b64encode(encrypted)
+        message = (csr.__str__(), encoded.decode("ascii"), encoded1.decode("ascii"))
+        # print(message)
+        # print("---------------------------------------------------------------")
+        # print(message)
+        sender = Sender(self.CA_host, self.CA_port, message)
+        sender.start()
 
     # def symmetric_key_with_CA(self):
     #
@@ -63,7 +82,6 @@ class User(Entity):
     #     return ct
     #
 
-
 class Receiver(threading.Thread):
     def __init__(self, my_host, my_port):
         threading.Thread.__init__(self, name="receiver")
@@ -99,13 +117,14 @@ class Sender(threading.Thread):
         threading.Thread.__init__(self, name="sender")
         self.host = my_friends_host
         self.port = my_friends_port
-        self.message = message
+        self.message = json.dumps(message)
 
     def run(self):
         while True:
-            message = self.message
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.connect((self.host, self.port))
-            s.sendall(message.encode("utf-8"))
+            s.send(self.message.encode("utf-8"))
             s.shutdown(2)
             s.close()
+
+

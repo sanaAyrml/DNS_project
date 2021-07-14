@@ -22,6 +22,7 @@ class Entity:
         self.uid = name
         self.CA_pub_key = CA_pub_key
         self.nuans = None
+        self.reciever_pub_key = None
 
 
     def creat_key(self):
@@ -103,6 +104,7 @@ class Entity:
         self.verify_certificate(signed_certificate, certificate)
         if self.nuans + 1 == list[1]:
             print("True message")
+        self.reciever_pub_key = certificate.public_key()
         return
 
     def verify_certificate(self, signed_certificate, certificate):

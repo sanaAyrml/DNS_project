@@ -21,11 +21,10 @@ class CA(Entity):
         print(self.pubkey_dict)
 
     def get_csr(self,csr, signed_csr, encrypted):
-        list = self.decrypt_with_private_key(encrypted)
-        self.verify_csr(signed_csr,csr,list[0])
-        print(list)
-        certificate, signed_certificate = self.creat_crt(list[1])
-        encrypted = self.encrypt_with_pub_key([list[1],list[2]+1],self.pubkey_dict[1])
+        l = list(self.decrypt_with_private_key(encrypted))
+        self.verify_csr(signed_csr,csr,l[0])
+        certificate, signed_certificate = self.creat_crt(l[1])
+        encrypted = self.encrypt_with_pub_key([l[1],l[2]+1],self.pubkey_dict[l[0]])
         return certificate, signed_certificate,encrypted
 
 

@@ -5,7 +5,6 @@ from bank import Bank
 from blockChain import BlockChain
 
 def ask_for_certificate(u1,u2,ca):
-    print(u2.uid)
     csr, signed_csr, encrypted = u1.creat_csr(u2.uid)
     certificate, signed_certificate,encrypted = ca.get_csr(csr, signed_csr, encrypted)
     u1.get_certifcate(certificate, signed_certificate,encrypted)
@@ -13,6 +12,11 @@ def ask_for_certificate(u1,u2,ca):
 
 def deligation(u,bl,ca):
     ask_for_certificate(u,bl,ca)
+    encrypted_param= u.set_deffie_helman_key_1()
+    ask_for_certificate(bl,u,ca)
+    encrypted_param = bl.set_deffie_helman_key_2(encrypted_param)
+    encrypted_param = u.set_deffie_helman_key_3(encrypted_param)
+
     return
 
 ca = CA("CA", None)

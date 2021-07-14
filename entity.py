@@ -1,4 +1,6 @@
+import pickle
 import string
+from binascii import unhexlify
 
 import cryptography
 from cryptography import x509
@@ -23,11 +25,18 @@ class Entity:
         self.CA_pub_key = CA_pub_key
         self.nuans = None
         self.reciever_pub_key = None
+        self.reciever_uid = None
+        self.dh_p = None
+        self.dh_g = None
+        self.recived_nuans = None
+        self.dh_private_key = None
+        self.dh_reciver_public_key = None
+        self.dh_shared_key = None
+        self.dh_derived_key = None
 
 
     def creat_key(self):
         one_day = datetime.timedelta(1, 0, 0)
-        print(one_day)
 
         self.private_key = rsa.generate_private_key(
             public_exponent=65537,
@@ -60,6 +69,7 @@ class Entity:
         return self.pub_key
 
     def creat_csr(self, reciever_uid):
+        self.reciever_uid = reciever_uid
 
         self.csr = x509.CertificateSigningRequestBuilder().subject_name(x509.Name([
             x509.NameAttribute(NameOID.COUNTRY_NAME, u"IR"),
@@ -71,8 +81,7 @@ class Entity:
         self.signed_csr = self.private_key.sign(self.csr.public_bytes(serialization.Encoding.PEM),
                                            padding.PSS(mgf=padding.MGF1(hashes.SHA256()),salt_length=padding.PSS.MAX_LENGTH),
                                            hashes.SHA256())
-        print("csr",self.csr)
-        print("signed_csr",self.signed_csr)
+
         self.nuans = random.randint(0, 200)
 
         self.encrypted = self.encrypt_with_pub_key(bytes([self.uid,reciever_uid,self.nuans]),self.CA_pub_key)
@@ -80,29 +89,34 @@ class Entity:
         return self.csr,self.signed_csr,self.encrypted
 
     def encrypt_with_pub_key(self, message, pub_key):
-        print("start encrypt")
-        print(message)
-        ciphertext = pub_key.encrypt(message,
-                                             padding.OAEP(mgf=padding.MGF1(hashes.SHA256()),
-                                                          algorithm=hashes.SHA256(),
-                                                          label=None))
-        return ciphertext
+
+        encrypted_param = []
+        i  = 0
+        while i < len(message):
+            en = pub_key.encrypt(message[i:i+100],
+                                         padding.OAEP(mgf=padding.MGF1(hashes.SHA256()),
+                                                      algorithm=hashes.SHA256(),
+                                                      label=None))
+            encrypted_param.append(en)
+            i += 100
+
+
+        return encrypted_param
 
     def decrypt_with_private_key(self, message):
-        print("start decrypt")
-        print(message)
-        text = list(self.private_key.decrypt(message,
-                                     padding.OAEP(mgf=padding.MGF1(hashes.SHA256()),
-                                                  algorithm=hashes.SHA256(),
-                                                  label=None)))
-        print(text)
-        return text
+        de = b''
+        for m in message:
+            de += self.private_key.decrypt(m,
+                                           padding.OAEP(mgf=padding.MGF1(hashes.SHA256()),
+                                                        algorithm=hashes.SHA256(),
+                                                        label=None))
+        return de
 
     def get_certifcate(self,certificate, signed_certificate,encrypted):
 
-        list = self.decrypt_with_private_key(encrypted)
+        l = list(self.decrypt_with_private_key(encrypted))
         self.verify_certificate(signed_certificate, certificate)
-        if self.nuans + 1 == list[1]:
+        if self.nuans + 1 == l[1]:
             print("True message")
         self.reciever_pub_key = certificate.public_key()
         return
@@ -115,9 +129,65 @@ class Entity:
             print("invalid signature")
         return
 
+    def set_deffie_helman_key_1(self):
+        parameters = dh.generate_parameters(generator=2, key_size=512)
+        self.dh_private_key = parameters.generate_private_key()
+
+        self.dh_p = parameters.parameter_numbers().p
+        self.dh_g = parameters.parameter_numbers().g
+        self.nuans = random.randint(0, 10000)
+
+        list_param = [self.uid,self.reciever_uid,self.dh_p,self.dh_g,self.dh_private_key.public_key().public_numbers().y,self.nuans]
+        o=pickle.dumps(list_param)
+
+        encrypted_param = self.encrypt_with_pub_key(o,self.reciever_pub_key)
 
 
+        return encrypted_param
 
+
+    def set_deffie_helman_key_2(self,encrypted_param):
+
+        en = self.decrypt_with_private_key(encrypted_param)
+        kj = pickle.loads(en)
+        self.dh_p = kj[2]
+        self.dh_g = kj[3]
+        self.dh_y = kj[4]
+        self.recived_nuans = kj[5]
+
+        pn = dh.DHParameterNumbers(self.dh_p, self.dh_g)
+        parameters = pn.parameters()
+        peer_public_numbers = dh.DHPublicNumbers(self.dh_y, pn)
+        self.dh_reciver_public_key = peer_public_numbers.public_key()
+        self.dh_private_key = parameters.generate_private_key()
+        self.dh_shared_key = self.dh_private_key.exchange(self.dh_reciver_public_key)
+        self.dh_derived_key = HKDF(algorithm=hashes.SHA256(),length=32,salt=None,info=b'handshake data',).derive(self.dh_shared_key)
+
+        self.nuans = random.randint(0, 10000)
+
+        list_param = [self.uid,self.reciever_uid, self.dh_private_key.public_key().public_numbers().y,self.nuans,self.recived_nuans+1]
+        o=pickle.dumps(list_param)
+
+        encrypted_param = self.encrypt_with_pub_key(o,self.reciever_pub_key)
+
+        return encrypted_param
+
+    def set_deffie_helman_key_3(self,encrypted_param):
+
+        en = self.decrypt_with_private_key(encrypted_param)
+        kj = pickle.loads(en)
+        self.dh_y = kj[2]
+        self.recived_nuans = kj[3]
+        if self.nuans +1 == kj[4]:
+            print("true message")
+        else:
+            print("wrong message")
+
+        pn = dh.DHParameterNumbers(self.dh_p, self.dh_g)
+        peer_public_numbers = dh.DHPublicNumbers(self.dh_y, pn)
+        self.dh_reciver_public_key = peer_public_numbers.public_key()
+        self.dh_shared_key = self.dh_private_key.exchange(self.dh_reciver_public_key)
+        self.dh_derived_key = HKDF(algorithm=hashes.SHA256(),length=32,salt=None,info=b'handshake data',).derive(self.dh_shared_key)
 
 
 

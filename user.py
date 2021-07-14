@@ -8,13 +8,17 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import os
 import json
 import string
+import threading
+import socket
+
+
 class User(Entity):
     def __init__(self, name, CA_pub_key):
-        super().__init__(name,CA_pub_key)
+        super().__init__(name, CA_pub_key)
         self.key_address = self.creat_key()
+        self.host = "127.0.0.1"
+        self.port = 2000
         print(self.key_address)
-
-
 
     # def symmetric_key_with_CA(self):
     #
@@ -58,3 +62,50 @@ class User(Entity):
     #     ct = encryptor.update(message)
     #     return ct
     #
+
+
+class Receiver(threading.Thread):
+    def __init__(self, my_host, my_port):
+        threading.Thread.__init__(self, name="receiver")
+        self.host = my_host
+        self.port = my_port
+
+    def listen(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind((self.host, self.port))
+        sock.listen(10)
+        while True:
+            connection, client_address = sock.accept()
+            try:
+                full_message = ""
+                while True:
+                    data = connection.recv(16)
+                    full_message = full_message + data.decode("utf-8")
+                    if not data:
+                        print("{}: {}".format(client_address, full_message.strip()))
+                        break
+            finally:
+                # connection.shutdown(2)
+                # connection.close()
+                pass
+
+    def run(self):
+        self.listen()
+
+
+class Sender(threading.Thread):
+
+    def __init__(self, my_friends_host, my_friends_port, message):
+        threading.Thread.__init__(self, name="sender")
+        self.host = my_friends_host
+        self.port = my_friends_port
+        self.message = message
+
+    def run(self):
+        while True:
+            message = self.message
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((self.host, self.port))
+            s.sendall(message.encode("utf-8"))
+            s.shutdown(2)
+            s.close()

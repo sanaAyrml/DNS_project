@@ -16,6 +16,7 @@ import random
 import os
 from cryptography.hazmat.primitives.asymmetric import dh
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 class Entity:
     def __init__(self, name: string,CA_pub_key):
@@ -26,6 +27,7 @@ class Entity:
         self.nuans = None
         self.reciever_pub_key = None
         self.reciever_uid = None
+        self.reciever_certificate = None
         self.dh_p = None
         self.dh_g = None
         self.recived_nuans = None
@@ -45,13 +47,17 @@ class Entity:
         )
         self.pub_key = self.private_key.public_key()
 
+        try:
+            os.mkdir("./Keys")
+        except OSError as error:
+            pass
 
         path =  "./Keys/"+ str(self.uid)
-        adress = path+"/ca.key"
+        adress = path+"/"+str(self.uid)+".key"
         try:
             os.mkdir(path)
         except OSError as error:
-            print(error)
+            pass
         with open(adress, "wb") as f:
             f.write(self.private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
@@ -113,7 +119,7 @@ class Entity:
         return de
 
     def get_certifcate(self,certificate, signed_certificate,encrypted):
-
+        self.reciever_certificate = certificate
         l = list(self.decrypt_with_private_key(encrypted))
         self.verify_certificate(signed_certificate, certificate)
         if self.nuans + 1 == l[1]:
@@ -188,6 +194,17 @@ class Entity:
         self.dh_reciver_public_key = peer_public_numbers.public_key()
         self.dh_shared_key = self.dh_private_key.exchange(self.dh_reciver_public_key)
         self.dh_derived_key = HKDF(algorithm=hashes.SHA256(),length=32,salt=None,info=b'handshake data',).derive(self.dh_shared_key)
+        return
 
+    def encrypt_with_session_key(self,message):
+        cipher = Cipher(algorithms.AES(self.dh_derived_key), modes.CBC(b"a" * 16))
+        encryptor = cipher.encryptor()
+        ct = encryptor.update(message) + encryptor.finalize()
+        return ct
+
+    def decrypt_with_session_key(self,message):
+        cipher = Cipher(algorithms.AES(self.dh_derived_key), modes.CBC(b"a" * 16))
+        decryptor = cipher.decryptor()
+        return decryptor.update(message) + decryptor.finalize()
 
 

@@ -28,7 +28,6 @@ class CA(Entity):
 
     def add_pubkey(self,name,pubkey):
         self.pubkey_dict[name] = pubkey
-        print(self.pubkey_dict)
 
     def get_csr(self,csr, signed_csr, encrypted):
         l = list(self.decrypt_with_private_key(encrypted))

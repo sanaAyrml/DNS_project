@@ -39,6 +39,9 @@ class User(Entity):
         sender = Sender(self.CA_host, self.CA_port, message)
         sender.start()
 
+    def send_deligation(self):
+        return
+
     # def symmetric_key_with_CA(self):
     #
     #     self.key = os.urandom(32)

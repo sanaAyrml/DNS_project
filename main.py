@@ -10,15 +10,34 @@ def ask_for_certificate(u1,u2,ca):
     u1.get_certifcate(certificate, signed_certificate,encrypted)
     return
 
+
+
 def deligation(u,bl,ca):
+    print("Start Deligation")
+    print("user asks certifcate of blockchain from ca")
     ask_for_certificate(u,bl,ca)
+    print("user got certifcate of blockchain from ca")
+    print("users reciver_id:",u.reciever_uid)
+    print("users reciver_public_key:",u.reciever_pub_key)
+    print("users reciver_certificate:",u.reciever_certificate)
     encrypted_param= u.set_deffie_helman_key_1()
+    print("user starts to set deffie-helman key")
     ask_for_certificate(bl,u,ca)
+    print("blockchain got certifcate of user from ca")
+    print("blockchain reciver_id:",bl.reciever_uid)
+    print("blockchain reciver_public_key:",bl.reciever_pub_key)
+    print("blockchain reciver_certificate:",bl.reciever_certificate)
     encrypted_param = bl.set_deffie_helman_key_2(encrypted_param)
-    encrypted_param = u.set_deffie_helman_key_3(encrypted_param)
+    print("blockchain got session_key:", bl.dh_derived_key)
+    u.set_deffie_helman_key_3(encrypted_param)
+    print("user got session_key:", u.dh_derived_key)
+    u.send_deligation()
+
 
     return
 
+
+print("Start Creating accounts")
 ca = CA("CA", None)
 
 u = User(1,ca.pub_key)
@@ -34,7 +53,7 @@ ca.add_pubkey(3,bl.get_pubkey())
 
 ba = Bank(4,ca.pub_key)
 ca.add_pubkey(4,ba.get_pubkey())
-
+print("Public_keys in CA:", ca.pub_key)
 deligation(u,bl,ca)
 
 

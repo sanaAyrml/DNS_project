@@ -31,7 +31,19 @@ def deligation(u,bl,ca):
     print("blockchain got session_key:", bl.dh_derived_key)
     u.set_deffie_helman_key_3(encrypted_param)
     print("user got session_key:", u.dh_derived_key)
-    u.send_deligation()
+    print("Enter range:")
+    range = int(input())
+    print("Enter count:")
+    count = int(input())
+    print("Enter time:")
+    time = int(input())
+    print("Enter reciever id:")
+    reciever_id = int(input())
+    encrypted_param = u.send_deligation(range,count,time,reciever_id)
+    print("deligation_sent")
+    bl.recieve_deligation(encrypted_param)
+    print("got deligation")
+    print("Policies list:", bl.dict_policies)
 
 
     return

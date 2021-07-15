@@ -197,13 +197,13 @@ class Entity:
         return
 
     def encrypt_with_session_key(self,message):
-        cipher = Cipher(algorithms.AES(self.dh_derived_key), modes.CBC(b"a" * 16))
+        cipher = Cipher(algorithms.AES(self.dh_derived_key), modes.CTR(b"a" * 16))
         encryptor = cipher.encryptor()
         ct = encryptor.update(message) + encryptor.finalize()
         return ct
 
     def decrypt_with_session_key(self,message):
-        cipher = Cipher(algorithms.AES(self.dh_derived_key), modes.CBC(b"a" * 16))
+        cipher = Cipher(algorithms.AES(self.dh_derived_key), modes.CTR(b"a" * 16))
         decryptor = cipher.decryptor()
         return decryptor.update(message) + decryptor.finalize()
 

@@ -13,6 +13,7 @@ import socket
 import pickle
 import struct
 import base64
+import random
 
 class User(Entity):
     def __init__(self, name, CA_pub_key):
@@ -39,8 +40,22 @@ class User(Entity):
         sender = Sender(self.CA_host, self.CA_port, message)
         sender.start()
 
-    def send_deligation(self):
-        return
+    def send_deligation(self,range, count, time,reciver_id):
+        pre_nuans = self.nuans
+        policy = [range,count,time,reciver_id]
+        policy_byte = pickle.dumps(policy)
+        self.nuans = random.randint(1,100000)
+        list_param = [self.uid,
+                      pre_nuans+self.recived_nuans,
+                      self.nuans,
+                      policy,
+                      self.private_key.sign(policy_byte,
+                                            padding.PSS(mgf=padding.MGF1(hashes.SHA256()),salt_length=padding.PSS.MAX_LENGTH),
+                                            hashes.SHA256())]
+        print(list_param)
+        o=pickle.dumps(list_param)
+        encrypted_param = self.encrypt_with_session_key(o)
+        return encrypted_param
 
     # def symmetric_key_with_CA(self):
     #
